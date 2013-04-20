@@ -36,7 +36,7 @@ def shuffleCrossValidation(labels, features, classifier,
     print 'score mean, std:', score.mean(), score.std()
             
 def scoreAuthor(ranked_labels):
-    # computes average precision for labels of a ranked list of an author's papers
+    # computes average precision for ranked labels of an author's papers
     
     score = 0.0
     confirmedCount = 0

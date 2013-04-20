@@ -1,7 +1,6 @@
+import numpy as np
 import csv
 import cPickle
-import numpy as np
-from collections import defaultdict
 
 class Author():
     def __init__(self):
@@ -53,17 +52,8 @@ def buildFeatures(authors, papers, path='DataRev2/'):
 
     labels = []
     features = []
-    
-    
+        
     # build features for training set...
-    '''
-    so far:
-    Number of Authors on Paper
-    Year of Paper
-    Number of Papers by Author
-    Number of Author's Papers in Journal
-    Number of Author's Papers in Conference
-    '''
     with open('DataRev2/Train.csv') as csvfile:
         reader = csv.reader(csvfile)
         reader.next() # skip header
@@ -91,6 +81,15 @@ def saveFeatures(labels, features, filename='train_features.p'):
 
     
 def generateFeatures(paperid, authorid, papers, authors):
+    '''
+    so far:
+    Number of Authors on Paper
+    Year of Paper
+    Number of Papers by Author
+    Number of Author's Papers in Journal
+    Number of Author's Papers in Conference
+    Number of Author's Papers with Coauthors
+    '''
     nauthors = len(papers[paperid].authors)
     npapers = len(authors[authorid].papers)
     year = papers[paperid].year
@@ -108,8 +107,16 @@ def generateFeatures(paperid, authorid, papers, authors):
                 njournal += 1
     else:
         njournal = -1  # indicates no journal info in data
-    
-    features = [npapers, nauthors, year, nconference, njournal]
+
+    ncoauthor = 0
+    for aid in papers[paperid].authors:
+        if aid != authorid:
+            for pid in authors[aid].papers:
+                if pid != paperid:
+                    ncoauthor += 1
+
+    features = [npapers, nauthors, year, 
+                nconference, njournal, ncoauthor]
     return features
 
 if __name__ == '__main__':
