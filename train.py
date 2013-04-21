@@ -1,6 +1,8 @@
 import numpy as np
 import cPickle
 from sklearn.ensemble import RandomForestClassifier
+#from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.cross_validation import ShuffleSplit
     
 def shuffleCrossValidation(labels, features, classifier, 
@@ -47,12 +49,16 @@ def scoreAuthor(ranked_labels):
     score /= sum(ranked_labels)
 
     return score
-    
+
 if __name__ == '__main__':
-    classifier = RandomForestClassifier(n_estimators=100, 
-                                        n_jobs=-1,
-                                        min_samples_split=10,
-                                        random_state=0)
+    #classifier = RandomForestClassifier(n_estimators=100, 
+    #                                    n_jobs=-1,
+    #                                    min_samples_split=10,
+    #                                    random_state=0)
+    #classifier = AdaBoostClassifier(n_estimators=100)
+    classifier = GradientBoostingClassifier(n_estimators=200, 
+                                            subsample=0.8, 
+                                            learning_rate=0.15)
                                         
     labels, features = cPickle.load(open('train_features.p', 'rb'))
     
