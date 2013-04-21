@@ -4,6 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 #from sklearn.ensemble import AdaBoostClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.cross_validation import ShuffleSplit
+import csv
     
 def shuffleCrossValidation(labels, features, classifier, 
                            n_iter=3, test_size=0.25, random_state=0):
@@ -50,6 +51,32 @@ def scoreAuthor(ranked_labels):
 
     return score
 
+def trainAndPredict(trainlabels, trainfeatures, 
+                    testlabels, testfeatures, classifier):
+
+    X_train = [val for feature in trainfeatures for val in feature]
+    Y_train = [val for label in trainlabels for val in label]
+
+    classifier.fit(X_train, Y_train)
+
+    X_test = [val for feature in testfeatures for val in feature]
+    P_test = classifier.predict_proba(X_test)[:,1]
+        
+    flatidx = 0
+    ranked_papers = []
+    for author, papers in testlabels:
+        npapers = len(papers)
+        ranking = P_test[flatidx:flatidx+npapers].argsort()[::-1]
+        flatidx += npapers
+        
+        ranked_papers.append([author, [papers[rank] for rank in ranking]])
+        
+    with open('DataRev2/submission.csv', 'w') as csvfile:
+        writer = csv.writer(csvfile)
+        for author, papers in ranked_papers:
+            writer.writerow([author, " ".join([str(pid) for pid in papers])])
+    
+
 if __name__ == '__main__':
     #classifier = RandomForestClassifier(n_estimators=100, 
     #                                    n_jobs=-1,
@@ -59,7 +86,11 @@ if __name__ == '__main__':
     classifier = GradientBoostingClassifier(n_estimators=200, 
                                             subsample=0.8, 
                                             learning_rate=0.15)
-                                        
-    labels, features = cPickle.load(open('train_features.p', 'rb'))
     
-    shuffleCrossValidation(labels, features, classifier)
+    trainlabels, trainfeatures = cPickle.load(open('train_features.p', 'rb'))
+    
+    shuffleCrossValidation(trainlabels, trainfeatures, classifier)
+    
+    #testlabels, testfeatures = cPickle.load(open('test_features.p', 'rb'))
+    
+    #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier)

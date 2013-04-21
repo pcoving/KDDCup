@@ -47,9 +47,7 @@ def loadAuthorsAndPapers(path='DataRev2/'):
 
     return authors, papers
 
-def buildFeatures(authors, papers, path='DataRev2/'):
-    # recreates features from Kaggle benchmark without SQL    
-
+def buildTrainFeatures(authors, papers, path='DataRev2/'):
     labels = []
     features = []
         
@@ -75,24 +73,46 @@ def buildFeatures(authors, papers, path='DataRev2/'):
     
     return labels, features
 
-def saveFeatures(labels, features, filename='train_features.p'):
-    print 'saving features...'
-    cPickle.dump([labels, features], open(filename,'wb'))
+def buildTestFeatures(authors, papers, path='DataRev2/'):
+    labels = [] # [authorid, paperid] is label for test data (needed for submission)...
+    features = []
+        
+    # build features for training set...
+    with open('DataRev2/Valid.csv') as csvfile:
+        reader = csv.reader(csvfile)
+        reader.next() # skip header
+        for authorid, paperids in reader:
+            authorid = int(authorid)
+            paperids = [int(id) for id in paperids.split(' ')]
+            
+            myfeatures, mylabels = [], []
+            for pid in paperids:
+                mylabels.append(pid) 
+                myfeatures.append(generateFeatures(pid, authorid, papers, authors))
+            
+            features.append(myfeatures)    
+            labels.append([authorid, mylabels])
+    
+    return labels, features
 
+def saveFeatures(labels, features, filename):
+    print 'saving features to', filename, '...'
+    cPickle.dump([labels, features], open(filename,'wb'))
     
 def generateFeatures(paperid, authorid, papers, authors):
     '''
     so far:
-    Number of Authors on Paper
-    Year of Paper
-    Number of Papers by Author
-    Number of Author's Papers in Journal
-    Number of Author's Papers in Conference
-    Number of Author's Papers with Coauthors
+    nauthors = Number of Authors on Paper
+    npapers = Number of Papers by Author
+    year = Year of Paper
+    njournal = Number of Author's Papers in Journal
+    nconference = Number of Author's Papers in Conference
+    ncoauthor = Number of Author's Papers with Coauthors
     '''
     nauthors = len(papers[paperid].authors)
     npapers = len(authors[authorid].papers)
     year = papers[paperid].year
+
     if papers[paperid].conferenceid > 0:
         nconference = 0
         for pid in authors[authorid].papers:
@@ -115,11 +135,14 @@ def generateFeatures(paperid, authorid, papers, authors):
                 if pid != paperid:
                     ncoauthor += 1
 
-    features = [npapers, nauthors, year, 
+    features = [npapers, nauthors, year,
                 nconference, njournal, ncoauthor]
     return features
 
 if __name__ == '__main__':
     authors, papers = loadAuthorsAndPapers()
-    labels, features = buildFeatures(authors, papers)
-    saveFeatures(labels, features)
+    labels, features = buildTrainFeatures(authors, papers)
+    saveFeatures(labels, features, 'train_features.p')
+
+    labels, features = buildTestFeatures(authors, papers)
+    saveFeatures(labels, features, 'test_features.p')
