@@ -14,8 +14,8 @@ The competition appears to be an instance of bipartite ranking:
 
 Ideas
 -----
-- Build features with link analysis on author/paper graph, possibly with [NetworkX][5] library
-- How to use titles, keywords, affliation and other raw text features?
+- Build features with link analysis on author/paper graph, possibly with [NetworkX][5] library (doesn't seem to scale, looks like we need our own implementation)
+- How to use titles, keywords, affliction and other raw text features?
 
 [1]: https://www.kaggle.com/c/kdd-cup-2013-author-paper-identification-challenge
 [2]: https://www.kaggle.com/c/kdd-cup-2013-author-paper-identification-challenge/data

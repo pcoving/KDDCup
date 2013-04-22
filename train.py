@@ -7,7 +7,7 @@ from sklearn.cross_validation import ShuffleSplit
 import csv
     
 def shuffleCrossValidation(labels, features, classifier, 
-                           n_iter=3, test_size=0.25, random_state=0):
+                           n_iter=5, test_size=0.25, random_state=1):
     
     ss = ShuffleSplit(len(labels), n_iter=n_iter, 
                       test_size=test_size, random_state=random_state)
@@ -81,11 +81,12 @@ if __name__ == '__main__':
     #classifier = RandomForestClassifier(n_estimators=100, 
     #                                    n_jobs=-1,
     #                                    min_samples_split=10,
-    #                                    random_state=0)
+    #                                    random_state=1)
     #classifier = AdaBoostClassifier(n_estimators=100)
     classifier = GradientBoostingClassifier(n_estimators=200, 
                                             subsample=0.8, 
-                                            learning_rate=0.15)
+                                            learning_rate=0.15,
+                                            random_state=2)
     
     trainlabels, trainfeatures = cPickle.load(open('train_features.p', 'rb'))
     
