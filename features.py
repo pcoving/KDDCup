@@ -24,11 +24,11 @@ def loadAuthorsAndPapers(path='dataRev2/'):
             paperid, authorid = int(paperid), int(authorid)
             if paperid not in papers:
                 papers[paperid] = Paper()
-            papers[paperid].authors.append(int(authorid))
+            papers[paperid].authors.append(authorid)
             
             if authorid not in authors:
                 authors[authorid] = Author()
-            authors[authorid].papers.append(int(paperid))
+            authors[authorid].papers.append(paperid)
 
     notfound = 0
     with open(path + 'Paper.csv') as csvfile:
@@ -78,7 +78,7 @@ def buildTestFeatures(authors, papers, path='dataRev2/'):
     features = []
         
     # build features for training set...
-    with open('dataRev2/Valid.csv') as csvfile:
+    with open(path + 'Valid.csv') as csvfile:
         reader = csv.reader(csvfile)
         reader.next() # skip header
         for authorid, paperids in reader:
@@ -108,6 +108,7 @@ def generateFeatures(paperid, authorid, papers, authors):
     njournal = Number of Author's Papers in Journal
     nconference = Number of Author's Papers in Conference
     ncoauthor = Number of Author's Papers with Coauthors
+    nattrib = Number of times Paper has been attributed to Author
     '''
     nauthors = len(papers[paperid].authors)
     npapers = len(authors[authorid].papers)
@@ -127,16 +128,21 @@ def generateFeatures(paperid, authorid, papers, authors):
                 njournal += 1
     else:
         njournal = -1  # indicates no journal info in data
-
+        
     ncoauthor = 0
     for aid in papers[paperid].authors:
         if aid != authorid:
             for pid in authors[aid].papers:
                 if pid != paperid:
                     ncoauthor += 1
-                    
+    
+    nattrib = 0                
+    for pid in authors[authorid].papers:
+        if pid == paperid:
+            nattrib += 1
+
     features = [npapers, nauthors, year, 
-                nconference, njournal, ncoauthor]
+                nconference, njournal, ncoauthor, nattrib]
     return features
 
 if __name__ == '__main__':

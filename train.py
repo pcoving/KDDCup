@@ -86,7 +86,7 @@ if __name__ == '__main__':
     classifier = GradientBoostingClassifier(n_estimators=200, 
                                             subsample=0.8, 
                                             learning_rate=0.15,
-                                            random_state=2)
+                                            random_state=1)
     
     trainlabels, trainfeatures = cPickle.load(open('train_features.p', 'rb'))
     
