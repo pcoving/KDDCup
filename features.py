@@ -13,7 +13,7 @@ class Paper():
         self.journalid = None
         self.conferenceid = None
 
-def loadAuthorsAndPapers(path='DataRev2/'):
+def loadAuthorsAndPapers(path='dataRev2/'):
     
     authors = {}
     papers = {}
@@ -47,12 +47,12 @@ def loadAuthorsAndPapers(path='DataRev2/'):
 
     return authors, papers
 
-def buildTrainFeatures(authors, papers, path='DataRev2/'):
+def buildTrainFeatures(authors, papers, path='dataRev2/'):
     labels = []
     features = []
         
     # build features for training set...
-    with open('DataRev2/Train.csv') as csvfile:
+    with open('dataRev2/Train.csv') as csvfile:
         reader = csv.reader(csvfile)
         reader.next() # skip header
         for authorid, confirmedids, deletedids in reader:
@@ -73,12 +73,12 @@ def buildTrainFeatures(authors, papers, path='DataRev2/'):
     
     return labels, features
 
-def buildTestFeatures(authors, papers, path='DataRev2/'):
+def buildTestFeatures(authors, papers, path='dataRev2/'):
     labels = [] # [authorid, paperid] is label for test data (needed for submission)...
     features = []
         
     # build features for training set...
-    with open('DataRev2/Valid.csv') as csvfile:
+    with open('dataRev2/Valid.csv') as csvfile:
         reader = csv.reader(csvfile)
         reader.next() # skip header
         for authorid, paperids in reader:
@@ -134,15 +134,40 @@ def generateFeatures(paperid, authorid, papers, authors):
             for pid in authors[aid].papers:
                 if pid != paperid:
                     ncoauthor += 1
-
-    features = [npapers, nauthors, year,
+                    
+    features = [npapers, nauthors, year, 
                 nconference, njournal, ncoauthor]
     return features
 
 if __name__ == '__main__':
+
     authors, papers = loadAuthorsAndPapers()
     labels, features = buildTrainFeatures(authors, papers)
-    saveFeatures(labels, features, 'train_features.p')
 
+    saveFeatures(labels, features, 'train_features.p')
+    
     labels, features = buildTestFeatures(authors, papers)
     saveFeatures(labels, features, 'test_features.p')
+    
+
+
+'''
+import networkx as nx
+import itertools
+def paperrank(authors, papers):
+    print 'entering pagerank'
+    paperGraph = nx.Graph()
+    
+    for author in authors.values():
+        for pair in itertools.combinations(author.papers, 2):
+            if paperGraph.has_edge(pair[0], pair[1]):
+                paperGraph[pair[0]][pair[1]]['weight'] += 1
+            else:
+                paperGraph.add_edge(pair[0], pair[1], weight=1)
+    print 'loaded graph, starting pagerank'
+    pr = nx.pagerank(paperGraph)
+    print 'finished pagerank'
+    
+    for pid, prank in pr.items():
+        papers[pid].prank = prank
+'''
