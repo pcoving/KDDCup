@@ -70,7 +70,7 @@ def buildTrainFeatures(authors, papers, path='dataRev2/'):
             
             features.append(myfeatures)    
             labels.append(mylabels)
-    
+
     return labels, features
 
 def buildTestFeatures(authors, papers, path='dataRev2/'):
@@ -107,8 +107,10 @@ def generateFeatures(paperid, authorid, papers, authors):
     year = Year of Paper
     njournal = Number of Author's Papers in Journal
     nconference = Number of Author's Papers in Conference
-    ncoauthor = Number of Author's Papers with Coauthors
     nattrib = Number of times Paper has been attributed to Author
+    npapers_neighborhood = Number of Papers at Depth 2 on Paper Graph
+    not used (for efficiency reasons):
+    ncoauthor = Number of Author's Papers with Coauthors
     '''
     nauthors = len(papers[paperid].authors)
     npapers = len(authors[authorid].papers)
@@ -129,27 +131,36 @@ def generateFeatures(paperid, authorid, papers, authors):
     else:
         njournal = -1  # indicates no journal info in data
         
-    ncoauthor = 0
+    npapers_neighborhood = 0
     for aid in papers[paperid].authors:
         if aid != authorid:
             for pid in authors[aid].papers:
                 if pid != paperid:
-                    ncoauthor += 1
-    
+                    npapers_neighborhood += 1
+
+    '''
+    # this takes a long time!! and seems to yield little benefit??
+    ncoauthor = 0
+    # faster version:
+    for coauthorid in papers[paperid].authors:
+        if coauthorid != authorid:
+            ncoauthor += sum([papers[pid].authors.count(authorid) for pid in authors[coauthorid].papers if pid != paperid])
+    '''
+
     nattrib = 0                
     for pid in authors[authorid].papers:
         if pid == paperid:
             nattrib += 1
 
     features = [npapers, nauthors, year, 
-                nconference, njournal, ncoauthor, nattrib]
+                nconference, njournal, nattrib, npapers_neighborhood]
     return features
 
 if __name__ == '__main__':
 
     authors, papers = loadAuthorsAndPapers()
-    labels, features = buildTrainFeatures(authors, papers)
 
+    labels, features = buildTrainFeatures(authors, papers)
     saveFeatures(labels, features, 'train_features.p')
     
     labels, features = buildTestFeatures(authors, papers)

@@ -59,6 +59,8 @@ def trainAndPredict(trainlabels, trainfeatures,
 
     classifier.fit(X_train, Y_train)
 
+    #print classifier.feature_importances_
+
     X_test = [val for feature in testfeatures for val in feature]
     P_test = classifier.predict_proba(X_test)[:,1]
         
@@ -85,13 +87,13 @@ if __name__ == '__main__':
     #classifier = AdaBoostClassifier(n_estimators=100)
     classifier = GradientBoostingClassifier(n_estimators=200, 
                                             subsample=0.8, 
-                                            learning_rate=0.15,
+                                            learning_rate=0.1,
                                             random_state=1)
     
     trainlabels, trainfeatures = cPickle.load(open('train_features.p', 'rb'))
     
     shuffleCrossValidation(trainlabels, trainfeatures, classifier)
     
-    #testlabels, testfeatures = cPickle.load(open('test_features.p', 'rb'))
+    testlabels, testfeatures = cPickle.load(open('test_features.p', 'rb'))
     
-    #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier)
+    trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier)
