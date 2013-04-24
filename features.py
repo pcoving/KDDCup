@@ -48,11 +48,14 @@ def loadAuthorsAndPapers(path='dataRev2/'):
     return authors, papers
 
 def buildTrainFeatures(authors, papers, path='dataRev2/'):
+    
     labels = []
     features = []
-        
+
+    #nexamples = sum(1 for line in open(path + 'Train.csv'))
+    
     # build features for training set...
-    with open('dataRev2/Train.csv') as csvfile:
+    with open(path + 'Train.csv') as csvfile:
         reader = csv.reader(csvfile)
         reader.next() # skip header
         for authorid, confirmedids, deletedids in reader:
@@ -70,7 +73,7 @@ def buildTrainFeatures(authors, papers, path='dataRev2/'):
             
             features.append(myfeatures)    
             labels.append(mylabels)
-
+            
     return labels, features
 
 def buildTestFeatures(authors, papers, path='dataRev2/'):
@@ -163,8 +166,8 @@ if __name__ == '__main__':
     labels, features = buildTrainFeatures(authors, papers)
     saveFeatures(labels, features, 'train_features.p')
     
-    labels, features = buildTestFeatures(authors, papers)
-    saveFeatures(labels, features, 'test_features.p')
+    #labels, features = buildTestFeatures(authors, papers)
+    #saveFeatures(labels, features, 'test_features.p')
     
 
 
