@@ -119,7 +119,7 @@ class BipartiteRankBoost(BaseEnsemble):
         
         estimator = self._make_estimator()
 
-        if (self.verbose == 1):
+        if (self.verbose > 0):
             print 'building stump', iboost+1, 'out of', self.n_estimators
         estimator.fit(X, y, sample_weight=sample_weight,
                       X_argsorted=X_argsorted, npositive=npositive)

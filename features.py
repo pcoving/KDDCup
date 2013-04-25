@@ -12,6 +12,8 @@ class Paper():
         self.year = None
         self.journalid = None
         self.conferenceid = None
+        self.title = None
+        self.affiliation = None
 
 def loadAuthorsAndPapers(path='dataRev2/'):
     
@@ -25,6 +27,7 @@ def loadAuthorsAndPapers(path='dataRev2/'):
             if paperid not in papers:
                 papers[paperid] = Paper()
             papers[paperid].authors.append(authorid)
+            papers[paperid].affiliation = affiliation
             
             if authorid not in authors:
                 authors[authorid] = Author()
@@ -40,6 +43,7 @@ def loadAuthorsAndPapers(path='dataRev2/'):
                 papers[paperid].year = int(year)
                 papers[paperid].conferenceid = int(conferenceid)
                 papers[paperid].journalid = int(journalid)
+                papers[paperid].title = title
             except KeyError:
                 notfound += 1
 
@@ -53,7 +57,7 @@ def buildTrainFeatures(authors, papers, path='dataRev2/'):
     features = []
 
     #nexamples = sum(1 for line in open(path + 'Train.csv'))
-    
+
     # build features for training set...
     with open(path + 'Train.csv') as csvfile:
         reader = csv.reader(csvfile)
@@ -62,7 +66,7 @@ def buildTrainFeatures(authors, papers, path='dataRev2/'):
             authorid = int(authorid)
             confirmedids = [int(id) for id in confirmedids.split(' ')]
             deletedids = [int(id) for id in deletedids.split(' ')]
-
+            
             myfeatures, mylabels = [], []
             for cid in confirmedids:
                 mylabels.append(1)  # 1 = confirmed
@@ -73,13 +77,13 @@ def buildTrainFeatures(authors, papers, path='dataRev2/'):
             
             features.append(myfeatures)    
             labels.append(mylabels)
-            
+        
     return labels, features
 
 def buildTestFeatures(authors, papers, path='dataRev2/'):
     labels = [] # [authorid, paperid] is label for test data (needed for submission)...
     features = []
-        
+
     # build features for training set...
     with open(path + 'Valid.csv') as csvfile:
         reader = csv.reader(csvfile)
@@ -114,6 +118,8 @@ def generateFeatures(paperid, authorid, papers, authors):
     npapers_neighborhood = Number of Papers at Depth 2 on Paper Graph
     not used (for efficiency reasons):
     ncoauthor = Number of Author's Papers with Coauthors
+
+    how to create continuous, graph-based analogs for the various "count" features?
     '''
     nauthors = len(papers[paperid].authors)
     npapers = len(authors[authorid].papers)
@@ -156,7 +162,8 @@ def generateFeatures(paperid, authorid, papers, authors):
             nattrib += 1
 
     features = [npapers, nauthors, year, 
-                nconference, njournal, nattrib, npapers_neighborhood]
+                nconference, njournal, nattrib, npapers_neighborhood,
+                len(papers[paperid].title), len(papers[paperid].affiliation)]
     return features
 
 if __name__ == '__main__':

@@ -16,16 +16,19 @@ def shuffleCrossValidation(labels, features, classifier,
     
     score = []
     for iteration, (train_authors, test_authors) in enumerate(ss):
-        myscore = 0.0
-        X_train = [val for idx in train_authors for val in features[idx]]
-        Y_train = [val for idx in train_authors for val in labels[idx]]
-
-        classifier = classifier.fit(X_train, Y_train)
         
+        X_train = [val for idx in train_authors for val in features[idx]]
+        y_train = [val for idx in train_authors for val in labels[idx]]
+        
+        classifier = classifier.fit(X_train, y_train)
+        if verbose > 1:
+            print 'feature importances:', classifier.feature_importances_
+
         # predict everything at once
         X_test = [val for idx in test_authors for val in features[idx]]
         P_test = classifier.predict_proba(X_test)[:,1]
-
+        
+        myscore = 0.0
         flatidx = 0
         for idx in test_authors:
             npapers = len(labels[idx])
@@ -33,10 +36,11 @@ def shuffleCrossValidation(labels, features, classifier,
             flatidx += npapers
             
             ranked_labels = [labels[idx][rank] for rank in ranking]
+            
             myscore += scoreAuthor(ranked_labels)
             
         score.append(myscore/len(test_authors))
-        if verbose == 1:
+        if verbose > 0:
             print 'iteration', iteration, 'score:', myscore/len(test_authors)
 
     score = np.array(score)
@@ -60,18 +64,10 @@ def trainAndPredict(trainlabels, trainfeatures,
         
     X_train = [paperfeature for authorfeatures in trainfeatures 
                for paperfeature in authorfeatures]
-    Y_train = [paperlabel for authorlabels in trainlabels 
+    y_train = [paperlabel for authorlabels in trainlabels 
                for paperlabel in authorlabels]
 
-    classifier.fit(X_train, Y_train)
-
-    '''
-    should prune based on importances, seems to improve results
-    print classifier.feature_importances_
-    for feature in trainfeatures:
-        for val in feature:
-            del val[3]
-    '''
+    classifier.fit(X_train, y_train)
     
     X_test = [paperfeature for authorfeatures in testfeatures 
                for paperfeature in authorfeatures]
@@ -86,7 +82,7 @@ def trainAndPredict(trainlabels, trainfeatures,
         
         ranked_papers.append([author, [papers[rank] for rank in ranking]])
         
-    with open('DataRev2/submission.csv', 'w') as csvfile:
+    with open('submission.csv', 'w') as csvfile:
         writer = csv.writer(csvfile)
         for author, papers in ranked_papers:
             writer.writerow([author, " ".join([str(pid) for pid in papers])])
@@ -96,17 +92,23 @@ if __name__ == '__main__':
     #                                    n_jobs=-1,
     #                                    min_samples_split=10,
     #                                    random_state=1)
-
-    #classifier = AdaBoostClassifier(n_estimators=200)
-    classifier = BipartiteRankBoost(n_estimators=50, verbose=0)
-
-    #classifier = GradientBoostingClassifier(n_estimators=200, 
-    #                                        subsample=0.8, 
-    #                                        learning_rate=0.15,
-    #                                        random_state=1)
     
+    #classifier = AdaBoostClassifier(n_estimators=200)
+    #classifier = BipartiteRankBoost(n_estimators=100, verbose=2)
+
+    classifier = GradientBoostingClassifier(n_estimators=200, 
+                                            #subsample=0.8, 
+    #                                         learning_rate=0.15,
+    #                                        min_samples_split=2, 
+    #                                        min_samples_leaf=1,
+    #                                        max_depth=3,
+                                            random_state=1,
+                                            verbose=1)  
+ 
     trainlabels, trainfeatures = cPickle.load(open('train_features.p', 'rb'))
     
+    #trainlabels = trainlabels[:100]
+    #trainfeatures = trainfeatures[:100]
     shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=1)
     
     #testlabels, testfeatures = cPickle.load(open('test_features.p', 'rb'))
