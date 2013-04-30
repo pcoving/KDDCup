@@ -139,14 +139,12 @@ def generateFeatures(paperid, authorid, papers, authors):
     nsameconference = Number of Author's Papers in Conference
     nattrib = Number of times Paper has been attributed to Author
     globalpaperrank = Degree of Paper on Paper/Author graph (actually pagerank on undirected graph!)
-    not used (for efficiency reasons):
     ncoauthor = Number of Author's Papers with Coauthors
     
     how to create continuous, graph-based analogs for the various "count" features?
     '''
     nauthors = len(papers[paperid].authors)
     npapers = len(authors[authorid].papers)
-    year = papers[paperid].year
     
     if papers[paperid].conferenceid > 0:
         nsameconference = 0
@@ -170,25 +168,21 @@ def generateFeatures(paperid, authorid, papers, authors):
                 if pid != paperid:
                     globalpaperrank += 1
 
-    # this takes a long time!! and seems to yield little benefit??
-    '''                
     ncoauthor = 0
-    # faster version:
     for coauthorid in papers[paperid].authors:
         if coauthorid != authorid:
             for pid in authors[coauthorid].papers:
-                if pid != paperid:
-                    ncoauthor += papers[pid].authors.count(authorid)
-    '''
-    
+                if pid != paperid and authorid in papers[pid].authors:
+                    ncoauthor += 1
+
     nattrib = 0
     for pid in authors[authorid].papers:
         if pid == paperid:
             nattrib += 1
 
-    features = [npapers, nauthors, year, 
-                nsameconference, nsamejournal, nattrib, globalpaperrank,
-                papers[paperid].paperrank]
+    features = [npapers, nauthors, papers[paperid].year, 
+                nsameconference, nsamejournal, ncoauthor,
+                nattrib, globalpaperrank, papers[paperid].paperrank]
 
     return features
 
