@@ -1,45 +1,59 @@
 import numpy as np
 import cPickle
+import csv
+import itertools
 from sklearn.ensemble import RandomForestClassifier
 #from sklearn.ensemble import AdaBoostClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.cross_validation import ShuffleSplit
-import csv
 from rankboost import BipartiteRankBoost
 
 def shuffleCrossValidation(labels, features, classifier, 
                            n_iter=5, test_size=0.25, random_state=1,
-                           verbose=0):
+                           verbose=0, pairwise=False):
     
     ss = ShuffleSplit(len(labels), n_iter=n_iter, 
                       test_size=test_size, random_state=random_state)
     
     score = []
     for iteration, (train_authors, test_authors) in enumerate(ss):
-        
-        X_train = [val for idx in train_authors for val in features[idx]]
-        y_train = [val for idx in train_authors for val in labels[idx]]
-        
-        classifier = classifier.fit(X_train, y_train)
-        if verbose > 1:
-            print 'feature importances:', classifier.feature_importances_
 
-        # predict everything at once
-        X_test = [val for idx in test_authors for val in features[idx]]
-        P_test = classifier.predict_proba(X_test)[:,1]
+        if not pairwise:
+            X_train = [val for idx in train_authors for val in features[idx]]
+            y_train = [val for idx in train_authors for val in labels[idx]]
+        else:
+            X_train = [features[idx] for idx in train_authors]
+            y_train = [labels[idx] for idx in train_authors]
+            y_train, X_train = pairwise_transform(y_train, X_train)
+            def classifierComp(x1, x2):
+                xtrans = x2 + x1 + [x2 - x1 for (x1, x2) in zip(x1,x2)]
+                return int(classifier.predict(xtrans)[0])
+
+        classifier = classifier.fit(X_train, y_train)
         
+        if not pairwise:
+            # predict everything at once
+            X_test = [val for idx in test_authors for val in features[idx]]
+            P_test = classifier.predict_proba(X_test)[:,1]
+                
         myscore = 0.0
         flatidx = 0
         for idx in test_authors:
-            npapers = len(labels[idx])
-            ranking = P_test[flatidx:flatidx+npapers].argsort()[::-1]
-            flatidx += npapers
             
+            if pairwise:
+                ranking = sorted(range(len(features[idx])), 
+                                 key=features[idx].__getitem__, 
+                                 cmp=classifierComp)
+            else:
+                npapers = len(labels[idx])
+                ranking = P_test[flatidx:flatidx+npapers].argsort()[::-1]
+                flatidx += npapers
+
             ranked_labels = [labels[idx][rank] for rank in ranking]
-            
+
             myscore += scoreAuthor(ranked_labels)
             
-        score.append(myscore/len(test_authors))
+        score.append(myscore/len(test_authors)) # MAP
         if verbose > 0:
             print 'iteration', iteration, 'score:', myscore/len(test_authors)
 
@@ -48,7 +62,7 @@ def shuffleCrossValidation(labels, features, classifier,
             
 def scoreAuthor(ranked_labels):
     # computes average precision for ranked labels of an author's papers
-    
+
     score = 0.0
     confirmedCount = 0
     for idx, label in enumerate(ranked_labels):
@@ -60,25 +74,41 @@ def scoreAuthor(ranked_labels):
     return score
 
 def trainAndPredict(trainlabels, trainfeatures, 
-                    testlabels, testfeatures, classifier):
+                    testlabels, testfeatures, classifier, pairwise=False):
         
-    X_train = [paperfeature for authorfeatures in trainfeatures 
-               for paperfeature in authorfeatures]
-    y_train = [paperlabel for authorlabels in trainlabels 
-               for paperlabel in authorlabels]
+    if not pairwise:
+        X_train = [paperfeature for authorfeatures in trainfeatures 
+                   for paperfeature in authorfeatures]
+        y_train = [paperlabel for authorlabels in trainlabels 
+                   for paperlabel in authorlabels]
+    else:
+        X_train = [authorfeatures for authorfeatures in trainfeatures]
+        y_train = [authorlabels for authorlabels in trainlabels]
+        y_train, X_train = pairwise_transform(y_train, X_train)
+        def classifierComp(x1, x2):
+            xtrans = x2 + x1 + [x2 - x1 for (x1, x2) in zip(x1,x2)]
+            return int(classifier.predict(xtrans)[0])
 
     classifier.fit(X_train, y_train)
-    
-    X_test = [paperfeature for authorfeatures in testfeatures 
-               for paperfeature in authorfeatures]
-    P_test = classifier.predict_proba(X_test)[:,1]
+
+    if not pairwise:
+        X_test = [paperfeature for authorfeatures in testfeatures 
+                  for paperfeature in authorfeatures]
+        P_test = classifier.predict_proba(X_test)[:,1]
         
     flatidx = 0
     ranked_papers = []
-    for author, papers in testlabels:
-        npapers = len(papers)
-        ranking = P_test[flatidx:flatidx+npapers].argsort()[::-1]
-        flatidx += npapers
+    for idx, labels in enumerate(testlabels):
+        author, papers = labels
+
+        if pairwise:
+            ranking = sorted(range(len(testfeatures[idx])), 
+                             key=testfeatures[idx].__getitem__, 
+                             cmp=classifierComp)
+        else:
+            npapers = len(papers)
+            ranking = P_test[flatidx:flatidx+npapers].argsort()[::-1]
+            flatidx += npapers
         
         ranked_papers.append([author, [papers[rank] for rank in ranking]])
         
@@ -86,6 +116,23 @@ def trainAndPredict(trainlabels, trainfeatures,
         writer = csv.writer(csvfile)
         for author, papers in ranked_papers:
             writer.writerow([author, " ".join([str(pid) for pid in papers])])
+
+def pairwise_transform(labels, features):
+
+    new_features = []
+    new_labels = []
+    for label, feature in zip(labels, features):
+        
+        nconfirmed = sum(label)
+        for iconf, idel in itertools.product(range(nconfirmed), range(nconfirmed, len(label))):
+            assert label[iconf] == 1 and label[idel] == 0
+            new_features.append(feature[iconf] + feature[idel] + [feat1 - feat2 for (feat1, feat2) in zip(feature[iconf], feature[idel])])
+            new_labels.append(1)
+            new_features.append(feature[idel] + feature[iconf] + [feat2 - feat1 for (feat1, feat2) in zip(feature[iconf], feature[idel])])
+            new_labels.append(-1)
+            
+    return new_labels, new_features
+
 
 if __name__ == '__main__':
     #classifier = RandomForestClassifier(n_estimators=100, 
@@ -97,8 +144,8 @@ if __name__ == '__main__':
     #classifier = BipartiteRankBoost(n_estimators=100, verbose=2)
 
     classifier = GradientBoostingClassifier(n_estimators=200, 
-                                            #subsample=0.8, 
-    #                                         learning_rate=0.15,
+    #                                        subsample=0.8, 
+    #                                        learning_rate=0.05,
     #                                        min_samples_split=2, 
     #                                        min_samples_leaf=1,
     #                                        max_depth=3,
@@ -106,14 +153,10 @@ if __name__ == '__main__':
                                             verbose=1)  
  
     trainlabels, trainfeatures = cPickle.load(open('train_features.p', 'rb'))
-    
-    #trainlabels = trainlabels[:100]
-    #trainfeatures = trainfeatures[:100]
-    shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=1)
+    shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=2, pairwise=False)
     
     #testlabels, testfeatures = cPickle.load(open('test_features.p', 'rb'))
-    
-    #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier)
+    #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier, pairwise=True)
 
 
     

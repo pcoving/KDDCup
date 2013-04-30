@@ -1,11 +1,12 @@
-import numpy as np
 import csv
 import cPickle
+import itertools
+import random
 
 class Author():
     def __init__(self):
         self.papers = []
-        
+
 class Paper():
     def __init__(self):
         self.authors = []
@@ -14,9 +15,11 @@ class Paper():
         self.conferenceid = None
         self.title = None
         self.affiliation = None
+        self.paperrank = None
 
 def loadAuthorsAndPapers(path='dataRev2/'):
-    
+    print 'loading authors and papers...'
+
     authors = {}
     papers = {}
     with open(path + 'PaperAuthor.csv') as csvfile:
@@ -27,12 +30,12 @@ def loadAuthorsAndPapers(path='dataRev2/'):
             if paperid not in papers:
                 papers[paperid] = Paper()
             papers[paperid].authors.append(authorid)
-            papers[paperid].affiliation = affiliation
+            papers[paperid].affiliation = affiliation # no need for this yet..
             
             if authorid not in authors:
                 authors[authorid] = Author()
             authors[authorid].papers.append(paperid)
-
+            
     notfound = 0
     with open(path + 'Paper.csv') as csvfile:
         reader = csv.reader(csvfile)
@@ -43,22 +46,38 @@ def loadAuthorsAndPapers(path='dataRev2/'):
                 papers[paperid].year = int(year)
                 papers[paperid].conferenceid = int(conferenceid)
                 papers[paperid].journalid = int(journalid)
-                papers[paperid].title = title
+                papers[paperid].title = title # no need for this yet...
             except KeyError:
                 notfound += 1
 
-    print 'unable to find ' + str(notfound) + ' papers '
-
+    #print 'unable to find ' + str(notfound) + ' papers'
+    print 'done.'
     return authors, papers
+
+def calcPersonalizedPaperRank(authorid, authors, papers, beta=0.8, nwalks=50):
+    
+    for paper in papers.values():
+        paper.paperrank = 0
+    for pid in authors[authorid].papers:
+        for walk in range(nwalks):
+            current_pid = pid
+            #papers[current_pid].paperrank += 1
+            if len(papers[current_pid].authors) > 1:
+                while (random.random() < beta):   # will pass with probability beta...
+                    random_aid = authorid
+                    while (random_aid != authorid):
+                        random_aid = random.choice(papers[current_pid].authors)
+                    current_pid = random.choice(authors[random_aid].papers)
+                    papers[current_pid].paperrank += 1
 
 def buildTrainFeatures(authors, papers, path='dataRev2/'):
     
     labels = []
     features = []
 
-    #nexamples = sum(1 for line in open(path + 'Train.csv'))
-
     # build features for training set...
+    conferences = {}
+    journals = {}
     with open(path + 'Train.csv') as csvfile:
         reader = csv.reader(csvfile)
         reader.next() # skip header
@@ -66,7 +85,9 @@ def buildTrainFeatures(authors, papers, path='dataRev2/'):
             authorid = int(authorid)
             confirmedids = [int(id) for id in confirmedids.split(' ')]
             deletedids = [int(id) for id in deletedids.split(' ')]
-            
+
+            calcPersonalizedPaperRank(authorid, authors, papers)
+
             myfeatures, mylabels = [], []
             for cid in confirmedids:
                 mylabels.append(1)  # 1 = confirmed
@@ -74,10 +95,10 @@ def buildTrainFeatures(authors, papers, path='dataRev2/'):
             for did in deletedids:
                 mylabels.append(0)  # 0 = deleted
                 myfeatures.append(generateFeatures(did, authorid, papers, authors))
-            
+
             features.append(myfeatures)    
             labels.append(mylabels)
-        
+
     return labels, features
 
 def buildTestFeatures(authors, papers, path='dataRev2/'):
@@ -91,6 +112,8 @@ def buildTestFeatures(authors, papers, path='dataRev2/'):
         for authorid, paperids in reader:
             authorid = int(authorid)
             paperids = [int(id) for id in paperids.split(' ')]
+            
+            calcPersonalizedPaperRank(authorid, authors, papers)
             
             myfeatures, mylabels = [], []
             for pid in paperids:
@@ -112,89 +135,67 @@ def generateFeatures(paperid, authorid, papers, authors):
     nauthors = Number of Authors on Paper
     npapers = Number of Papers by Author
     year = Year of Paper
-    njournal = Number of Author's Papers in Journal
-    nconference = Number of Author's Papers in Conference
+    nsamejournal = Number of Author's Papers in Journal
+    nsameconference = Number of Author's Papers in Conference
     nattrib = Number of times Paper has been attributed to Author
-    npapers_neighborhood = Number of Papers at Depth 2 on Paper Graph
+    globalpaperrank = Degree of Paper on Paper/Author graph (actually pagerank on undirected graph!)
     not used (for efficiency reasons):
     ncoauthor = Number of Author's Papers with Coauthors
-
+    
     how to create continuous, graph-based analogs for the various "count" features?
     '''
     nauthors = len(papers[paperid].authors)
     npapers = len(authors[authorid].papers)
     year = papers[paperid].year
-
+    
     if papers[paperid].conferenceid > 0:
-        nconference = 0
+        nsameconference = 0
         for pid in authors[authorid].papers:
             if papers[pid].conferenceid == papers[paperid].conferenceid:
-                nconference += 1
+                nsameconference += 1
     else:
-        nconference = -1  # indicates no conference info in data
+        nsameconference = -1  # indicates no conference info in data
     if papers[paperid].journalid > 0:
-        njournal = 0
+        nsamejournal = 0
         for pid in authors[authorid].papers:
             if papers[pid].journalid == papers[paperid].journalid:
-                njournal += 1
+                nsamejournal += 1
     else:
-        njournal = -1  # indicates no journal info in data
-        
-    npapers_neighborhood = 0
+        nsamejournal = -1  # indicates no journal info in data
+    
+    globalpaperrank = 0
     for aid in papers[paperid].authors:
         if aid != authorid:
             for pid in authors[aid].papers:
                 if pid != paperid:
-                    npapers_neighborhood += 1
+                    globalpaperrank += 1
 
-    '''
     # this takes a long time!! and seems to yield little benefit??
+    '''                
     ncoauthor = 0
     # faster version:
     for coauthorid in papers[paperid].authors:
         if coauthorid != authorid:
-            ncoauthor += sum([papers[pid].authors.count(authorid) for pid in authors[coauthorid].papers if pid != paperid])
+            for pid in authors[coauthorid].papers:
+                if pid != paperid:
+                    ncoauthor += papers[pid].authors.count(authorid)
     '''
-
-    nattrib = 0                
+    
+    nattrib = 0
     for pid in authors[authorid].papers:
         if pid == paperid:
             nattrib += 1
 
     features = [npapers, nauthors, year, 
-                nconference, njournal, nattrib, npapers_neighborhood,
-                len(papers[paperid].title), len(papers[paperid].affiliation)]
+                nsameconference, nsamejournal, nattrib, globalpaperrank,
+                papers[paperid].paperrank]
+
     return features
 
 if __name__ == '__main__':
-
     authors, papers = loadAuthorsAndPapers()
-
     labels, features = buildTrainFeatures(authors, papers)
     saveFeatures(labels, features, 'train_features.p')
     
     #labels, features = buildTestFeatures(authors, papers)
     #saveFeatures(labels, features, 'test_features.p')
-    
-
-
-'''
-import networkx as nx
-import itertools
-def paperrank(authors, papers):
-    print 'entering pagerank'
-    paperGraph = nx.Graph()
-    
-    for author in authors.values():
-        for pair in itertools.combinations(author.papers, 2):
-            if paperGraph.has_edge(pair[0], pair[1]):
-                paperGraph[pair[0]][pair[1]]['weight'] += 1
-            else:
-                paperGraph.add_edge(pair[0], pair[1], weight=1)
-    print 'loaded graph, starting pagerank'
-    pr = nx.pagerank(paperGraph)
-    print 'finished pagerank'
-    
-    for pid, prank in pr.items():
-        papers[pid].prank = prank
-'''
