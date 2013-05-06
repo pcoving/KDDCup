@@ -3,6 +3,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble.base import BaseEnsemble
 from sklearn.base import BaseEstimator
 from itertools import tee, izip
+import sys
 
 class Stump(BaseEstimator):
     
@@ -119,8 +120,11 @@ class BipartiteRankBoost(BaseEnsemble):
         
         estimator = self._make_estimator()
 
-        if (self.verbose > 0):
+        if self.verbose == 2:
             print 'building stump', iboost+1, 'out of', self.n_estimators
+        elif self.verbose == 1:
+            sys.stdout.write('.')
+            sys.stdout.flush()
         estimator.fit(X, y, sample_weight=sample_weight,
                       X_argsorted=X_argsorted, npositive=npositive)
 

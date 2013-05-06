@@ -7,6 +7,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.cross_validation import ShuffleSplit
 from rankboost import BipartiteRankBoost
+import random
+import sys
 
 def shuffleCrossValidation(labels, features, classifier, 
                            n_iter=5, test_size=0.25, random_state=1,
@@ -39,17 +41,23 @@ def shuffleCrossValidation(labels, features, classifier,
         myscore = 0.0
         flatidx = 0
         for idx in test_authors:
-            
-            if pairwise:
-                ranking = sorted(range(len(features[idx])), 
-                                 key=features[idx].__getitem__, 
+            myfeatures, mylabels = features[idx], labels[idx]
+
+            if pairwise:                
+                c = zip(myfeatures, mylabels)
+                random.shuffle(c)
+                myfeatures = [e[0] for e in c]
+                mylabels = [e[1] for e in c]
+                        
+                ranking = sorted(range(len(myfeatures)), 
+                                 key=myfeatures.__getitem__, 
                                  cmp=classifierComp)
             else:
-                npapers = len(labels[idx])
+                npapers = len(mylabels)
                 ranking = P_test[flatidx:flatidx+npapers].argsort()[::-1]
                 flatidx += npapers
 
-            ranked_labels = [labels[idx][rank] for rank in ranking]
+            ranked_labels = [mylabels[rank] for rank in ranking]
 
             myscore += scoreAuthor(ranked_labels)
             
@@ -60,19 +68,6 @@ def shuffleCrossValidation(labels, features, classifier,
     score = np.array(score)
     print 'score mean, std:', score.mean(), score.std()
             
-def scoreAuthor(ranked_labels):
-    # computes average precision for ranked labels of an author's papers
-
-    score = 0.0
-    confirmedCount = 0
-    for idx, label in enumerate(ranked_labels):
-        if label is 1:
-            confirmedCount += 1
-            score += float(confirmedCount)/float(idx+1)            
-    score /= ranked_labels.count(1)
-
-    return score
-
 def trainAndPredict(trainlabels, trainfeatures, 
                     testlabels, testfeatures, classifier, pairwise=False):
         
@@ -133,6 +128,29 @@ def pairwise_transform(labels, features):
             
     return new_labels, new_features
 
+def loadFeatures(namelist, mode):
+    featurelist = []
+    for name in namelist:
+        filename = name + '.' + mode
+        featurelist.append(cPickle.load(open(filename, 'rb')))
+    features = []
+    for feats in zip(*featurelist):
+        features.append([list(tup) for tup in zip(*feats)])
+        
+    return features
+
+def scoreAuthor(ranked_labels):
+    # computes average precision for ranked labels of an author's papers
+
+    score = 0.0
+    confirmedCount = 0
+    for idx, label in enumerate(ranked_labels):
+        if label is 1:
+            confirmedCount += 1
+            score += float(confirmedCount)/float(idx+1)            
+    score /= ranked_labels.count(1)
+
+    return score
 
 if __name__ == '__main__':
     #classifier = RandomForestClassifier(n_estimators=100, 
@@ -141,22 +159,24 @@ if __name__ == '__main__':
     #                                    random_state=1)
     
     #classifier = AdaBoostClassifier(n_estimators=200)
-    #classifier = BipartiteRankBoost(n_estimators=100, verbose=2)
+    #classifier = BipartiteRankBoost(n_estimators=50, verbose=1)
 
     classifier = GradientBoostingClassifier(n_estimators=200, 
-    #                                        subsample=0.8, 
+    #                                        subsample=0.9, 
     #                                        learning_rate=0.05,
     #                                        min_samples_split=2, 
     #                                        min_samples_leaf=1,
-    #                                        max_depth=3,
+    #                                        max_depth=1,
                                             random_state=1,
                                             verbose=1)  
- 
-    trainlabels, trainfeatures = cPickle.load(open('train_features.p', 'rb'))
-    
+
+    feature_list = ['nauthors', 'npapers', 'year', 'nsamevenue', 'nattrib', 'paperrank', 'globalpaperrank', 'ncoauthor']
+
+    trainfeatures = loadFeatures(feature_list, mode='train')
+    trainlabels = cPickle.load(open('labels.train', 'rb')) 
+
     shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=2, pairwise=False)
     
-    #testlabels, testfeatures = cPickle.load(open('test_features.p', 'rb'))
     #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier, pairwise=True)
 
 
