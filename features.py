@@ -14,8 +14,7 @@ class Paper():
     def __init__(self):
         self.authors = []
         self.year = None
-        self.journalid = None
-        self.conferenceid = None
+        self.venueid = None
         self.title = None
         self.affiliation = None
         self.paperrank = None
@@ -49,11 +48,15 @@ def loadAuthorsPapers(path='dataRev2/'):
         reader = csv.reader(csvfile)
         reader.next() # skip header
         for paperid, title, year, conferenceid, journalid, keyword in reader:
-            paperid = int(paperid)
+            paperid, year, conferenceid, journalid = int(paperid), int(year), int(conferenceid), int(journalid)
             try:
-                papers[paperid].year = int(year)
-                papers[paperid].conferenceid = int(conferenceid)
-                papers[paperid].journalid = int(journalid)
+                papers[paperid].year = year
+                if journalid > 0:
+                    # to map journals and conferences to the same id space, just add 10k to the id because the maxmimum conference id is ~5k
+                    papers[paperid].venueid = journalid + 10000
+                if conferenceid > 0:
+                    # some papers are in both a conference and a journal?
+                    papers[paperid].venueid = conferenceid
                 # no need for this yet...
                 papers[paperid].title = title 
             except KeyError:
@@ -72,17 +75,17 @@ def loadAuthorsPapers(path='dataRev2/'):
 def loadVenues(authors, papers):
     
     venues = {}
-    assert False # broken...
-    '''
-    for paper in papers.values():
-        jid = paper.journalid
-        if jid > 0:
-            if jid not in journals:
-                journals[jid] = Journal()
-            for aid in paper.authors:
-                journals[jid].authors.append(aid)
-                authors[aid].journals.append(jid)
-    '''
+    for pid in papers.keys():
+        vid = papers[pid].venueid
+        if vid > 0:
+            if vid not in venues:
+                venues[vid] = Venue()
+            venues[vid].papers.append(pid)
+    
+    for venue in venues.values():
+        print venue.papers
+        sys.stdin.read(1)
+
     return venues
 
 def csvGenerator(mode, path='dataRev2/'):
@@ -128,9 +131,12 @@ def labels(mode='train', path='dataRev2/'):
                 authorid = int(authorid)
                 confirmedids = [int(id) for id in confirmedids.split(' ')]
                 deletedids = [int(id) for id in deletedids.split(' ')]
+                
                 for cid in confirmedids:
                     mylabels.append(1)  # 1 = confirmed
                 for did in deletedids:
+                    #if did in confirmedids:
+                    #    mylabels.append(1)
                     mylabels.append(0)  # 0 = deleted
                 labels.append(mylabels)
 
@@ -194,10 +200,8 @@ def nsamevenue(papers, authors, mode='train', path='dataRev2/'):
     for authorid, paperids in csvGenerator(mode=mode, path=path):
         myfeatures = []
         for pid in paperids:
-            if papers[pid].conferenceid > 0:
-                myfeatures.append([papers[pid2].conferenceid for pid2 in authors[authorid].papers].count(papers[pid].conferenceid))
-            elif papers[pid].journalid > 0:
-                myfeatures.append([papers[pid2].journalid for pid2 in authors[authorid].papers].count(papers[pid].journalid))
+            if papers[pid].venueid > 0:
+                myfeatures.append([papers[pid2].venueid for pid2 in authors[authorid].papers].count(papers[pid].venueid))
             else:
                 myfeatures.append(-1)
 
@@ -302,9 +306,13 @@ def ncoauthor(papers, authors, mode='train', path='dataRev2/'):
     saveFeature(features, name='ncoauthor', mode=mode) 
     
 if __name__ == '__main__':
-        
-    authors, papers = loadAuthorsPapers()
+    
     labels(mode='train')
+    
+    authors, papers = loadAuthorsPapers()
+    #venues = loadVenues(authors, papers)
+    
+    
     nauthors(papers, authors, mode='train')
     npapers(papers, authors, mode='train')
     year(papers, authors, mode='train')
@@ -313,3 +321,4 @@ if __name__ == '__main__':
     globalpaperrank(papers, authors, mode='train')
     paperrank(papers, authors, mode='train')
     ncoauthor(papers, authors, mode='train')
+    

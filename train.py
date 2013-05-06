@@ -9,7 +9,33 @@ from sklearn.cross_validation import ShuffleSplit
 from rankboost import BipartiteRankBoost
 import random
 import sys
+from sklearn.externals.joblib import Parallel, delayed
+import time
 
+def crossValidation(labels, features, classifier, train_authors, test_authors):
+
+    X_train = [val for idx in train_authors for val in features[idx]]
+    y_train = [val for idx in train_authors for val in labels[idx]]
+    classifier = classifier.fit(X_train, y_train)
+        
+    X_test = [val for idx in test_authors for val in features[idx]]
+    P_test = classifier.predict_proba(X_test)[:,1]
+    
+    myscore = 0.0
+    flatidx = 0
+    for idx in test_authors:
+        myfeatures, mylabels = features[idx], labels[idx]
+
+        npapers = len(mylabels)
+        ranking = P_test[flatidx:flatidx+npapers].argsort()[::-1]
+        flatidx += npapers
+
+        ranked_labels = [mylabels[rank] for rank in ranking]
+        
+        myscore += scoreAuthor(ranked_labels)
+            
+    return myscore/len(test_authors)
+    
 def shuffleCrossValidation(labels, features, classifier, 
                            n_iter=5, test_size=0.25, random_state=1,
                            verbose=0, pairwise=False):
@@ -17,8 +43,10 @@ def shuffleCrossValidation(labels, features, classifier,
     ss = ShuffleSplit(len(labels), n_iter=n_iter, 
                       test_size=test_size, random_state=random_state)
     
+    #scores = Parallel(n_jobs=-1)(delayed(crossValidation)(labels, features, classifier, train_authors, test_authors) for train_authors, test_authors in ss)
+    
     score = []
-    for iteration, (train_authors, test_authors) in enumerate(ss):
+    for train_authors, test_authors in ss:
 
         if not pairwise:
             X_train = [val for idx in train_authors for val in features[idx]]
@@ -63,10 +91,10 @@ def shuffleCrossValidation(labels, features, classifier,
             
         score.append(myscore/len(test_authors)) # MAP
         if verbose > 0:
-            print 'iteration', iteration, 'score:', myscore/len(test_authors)
+            print 'score:', myscore/len(test_authors)
 
-    score = np.array(score)
-    print 'score mean, std:', score.mean(), score.std()
+    scores = np.array(scores)
+    print 'score mean, std:', scores.mean(), scores.std()
             
 def trainAndPredict(trainlabels, trainfeatures, 
                     testlabels, testfeatures, classifier, pairwise=False):
@@ -161,21 +189,21 @@ if __name__ == '__main__':
     #classifier = AdaBoostClassifier(n_estimators=200)
     #classifier = BipartiteRankBoost(n_estimators=50, verbose=1)
 
-    classifier = GradientBoostingClassifier(n_estimators=200, 
-    #                                        subsample=0.9, 
-    #                                        learning_rate=0.05,
-    #                                        min_samples_split=2, 
-    #                                        min_samples_leaf=1,
-    #                                        max_depth=1,
-                                            random_state=1,
-                                            verbose=1)  
-
     feature_list = ['nauthors', 'npapers', 'year', 'nsamevenue', 'nattrib', 'paperrank', 'globalpaperrank', 'ncoauthor']
 
     trainfeatures = loadFeatures(feature_list, mode='train')
     trainlabels = cPickle.load(open('labels.train', 'rb')) 
 
-    shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=10, verbose=2, pairwise=False)
+    classifier = GradientBoostingClassifier(n_estimators=200, 
+                                            #subsample=subsample, 
+                                            #learning_rate=learning_rate,
+                                            #min_samples_split=2, 
+                                            #min_samples_leaf=1,
+                                            #max_depth=max_depth,
+                                            random_state=1,
+                                            verbose=0)
+    
+    shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=2, pairwise=False)
     
     #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier, pairwise=True)
 
