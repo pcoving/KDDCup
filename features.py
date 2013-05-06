@@ -70,8 +70,10 @@ def loadAuthorsPapers(path='dataRev2/'):
     return authors, papers
 
 def loadVenues(authors, papers):
-
+    
     venues = {}
+    assert False # broken...
+    '''
     for paper in papers.values():
         jid = paper.journalid
         if jid > 0:
@@ -80,7 +82,7 @@ def loadVenues(authors, papers):
             for aid in paper.authors:
                 journals[jid].authors.append(aid)
                 authors[aid].journals.append(jid)
-    
+    '''
     return venues
 
 def csvGenerator(mode, path='dataRev2/'):
@@ -255,7 +257,7 @@ def paperrank(papers, authors, mode='train', path='dataRev2/', beta=0.8, nwalks=
 
 def globalpaperrank(papers, authors, mode='train', path='dataRev2/'):
     '''
-    
+    On the undirected paper-author graph, the page rank is simply the degree
     '''
     
     print 'generating globalpaperrank feature...'

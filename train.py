@@ -175,7 +175,7 @@ if __name__ == '__main__':
     trainfeatures = loadFeatures(feature_list, mode='train')
     trainlabels = cPickle.load(open('labels.train', 'rb')) 
 
-    shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=2, pairwise=False)
+    shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=10, verbose=2, pairwise=False)
     
     #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier, pairwise=True)
 
