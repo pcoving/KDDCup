@@ -243,7 +243,7 @@ def paperrank(papers, authors, mode='train', path='dataRev2/', beta=0.8, nwalks=
                 if len(papers[current_pid].authors) > 1:
                     while (random.random() < beta):   # will pass with probability beta...
                         random_aid = authorid
-                        while (random_aid != authorid):
+                        while (random_aid == authorid):
                             random_aid = random.choice(papers[current_pid].authors)
                         current_pid = random.choice(authors[random_aid].papers)
                         papers[current_pid].paperrank += 1
@@ -251,13 +251,6 @@ def paperrank(papers, authors, mode='train', path='dataRev2/', beta=0.8, nwalks=
         features.append([papers[pid].paperrank for pid in paperids])
         
     saveFeature(features, name='paperrank', mode=mode) 
-
-    '''
-    ranked = [label for pr, label in sorted(zip(myfeatures, mylabels), key=lambda tup: -tup[0])]
-            score += scoreAuthor(ranked)
-            count += 1
-            #print score/count
-    '''
 
 def globalpaperrank(papers, authors, mode='train', path='dataRev2/'):
     '''
