@@ -14,10 +14,10 @@ class Paper():
     def __init__(self):
         self.authors = []
         self.year = None
-        self.venueid = None
+        self.venueid = 0
         self.title = None
         self.affiliation = None
-        self.paperrank = None
+        self.paperrank = 0
 
 class Venue():
     def __init__(self):
@@ -234,8 +234,8 @@ def paperrank(papers, authors, mode='train', path='dataRev2/', beta=0.8, nwalks=
     
     features = []
     for authorid, paperids in csvGenerator(mode=mode, path=path):
-        for paper in papers.values():
-            paper.paperrank = 0
+        for pid in paperids:
+            papers[pid].paperrank 
         for pid in authors[authorid].papers:
             for walk in range(nwalks):
                 current_pid = pid
