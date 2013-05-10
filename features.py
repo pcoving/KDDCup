@@ -235,7 +235,7 @@ def paperrank(papers, authors, mode='train', path='dataRev2/', beta=0.8, nwalks=
     features = []
     for authorid, paperids in csvGenerator(mode=mode, path=path):
         for pid in paperids:
-            papers[pid].paperrank 
+            papers[pid].paperrank = 0
         for pid in authors[authorid].papers:
             for walk in range(nwalks):
                 current_pid = pid
@@ -267,8 +267,7 @@ def globalpaperrank(papers, authors, mode='train', path='dataRev2/'):
             for aid in papers[paperid].authors:
                 if aid != authorid:
                     for pid in authors[aid].papers:
-                        if pid != paperid:
-                            globalpaperrank += 1
+                        globalpaperrank += 1
                             
             myfeatures.append(globalpaperrank)
         features.append(myfeatures)
