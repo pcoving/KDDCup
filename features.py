@@ -13,8 +13,8 @@ class Author():
 class Paper():
     def __init__(self):
         self.authors = []
-        self.year = None
-        self.venueid = 0
+        self.year = -1
+        self.venueid = -1
         self.title = None
         self.affiliation = None
         self.paperrank = 0
@@ -50,7 +50,8 @@ def loadAuthorsPapers(path='dataRev2/'):
         for paperid, title, year, conferenceid, journalid, keyword in reader:
             paperid, year, conferenceid, journalid = int(paperid), int(year), int(conferenceid), int(journalid)
             try:
-                papers[paperid].year = year
+                if year > 1400 and year < 2014:
+                    papers[paperid].year = year
                 if journalid > 0:
                     # to map journals and conferences to the same id space, just add 10k to the id because the maxmimum conference id is ~5k
                     papers[paperid].venueid = journalid + 10000
@@ -73,7 +74,7 @@ def loadAuthorsPapers(path='dataRev2/'):
     return authors, papers
 
 def loadVenues(authors, papers):
-
+    
     venues = {}
     for pid in papers.keys():
         vid = papers[pid].venueid
@@ -81,11 +82,7 @@ def loadVenues(authors, papers):
             if vid not in venues:
                 venues[vid] = Venue()
             venues[vid].papers.append(pid)
-
-    for venue in venues.values():
-        print venue.papers
-        sys.stdin.read(1)
-
+    
     return venues
 
 def csvGenerator(mode, path='dataRev2/'):
@@ -135,8 +132,6 @@ def labels(mode='train', path='dataRev2/'):
                 for cid in confirmedids:
                     mylabels.append(1)  # 1 = confirmed
                 for did in deletedids:
-                    #if did in confirmedids:
-                    #    mylabels.append(1)
                     mylabels.append(0)  # 0 = deleted
                 labels.append(mylabels)
 
@@ -225,40 +220,43 @@ def nattrib(papers, authors, mode='train', path='dataRev2/'):
 
     saveFeature(features, name='nattrib', mode=mode)
 
-def paperrank(papers, authors, mode='train', path='dataRev2/', beta=0.8, nwalks=50):
+def paperrank(papers, authors, mode='train', path='dataRev2/', beta=0.3, nwalks=1000):
     '''
     Personalized page rank
+    PC - I have no idea why this works...
     '''
-
+    
     print 'generating paperrank feature...'
-
-    features = []
+    
+    for paper in papers.values():
+        paper.paperrank = 0
+            
     for authorid, paperids in csvGenerator(mode=mode, path=path):
-        for pid in paperids:
-            papers[pid].paperrank = 0
         for pid in authors[authorid].papers:
             for walk in range(nwalks):
                 current_pid = pid
-                #papers[current_pid].paperrank += 1
                 if len(papers[current_pid].authors) > 1:
+                    papers[current_pid].paperrank += 1
                     while (random.random() < beta):   # will pass with probability beta...
                         random_aid = authorid
                         while (random_aid == authorid):
                             random_aid = random.choice(papers[current_pid].authors)
                         current_pid = random.choice(authors[random_aid].papers)
                         papers[current_pid].paperrank += 1
-
+    
+    features = []
+    for authorid, paperids in csvGenerator(mode=mode, path=path):
         features.append([papers[pid].paperrank for pid in paperids])
-
-    saveFeature(features, name='paperrank', mode=mode)
-
+       
+    saveFeature(features, name='paperrank', mode=mode) 
+    
 def globalpaperrank(papers, authors, mode='train', path='dataRev2/'):
     '''
-    On the undirected paper-author graph, the page rank is simply the degree
+    Degree on the above paperrank graph
     '''
-
+    
     print 'generating globalpaperrank feature...'
-
+    
     features = []
     for authorid, paperids in csvGenerator(mode=mode, path=path):
         myfeatures = []
@@ -268,12 +266,11 @@ def globalpaperrank(papers, authors, mode='train', path='dataRev2/'):
                 if aid != authorid:
                     for pid in authors[aid].papers:
                         globalpaperrank += 1
-
+                            
             myfeatures.append(globalpaperrank)
         features.append(myfeatures)
-
-    saveFeature(features, name='globalpaperrank', mode=mode)
-
+    
+    saveFeature(features, name='globalpaperrank', mode=mode) 
 
 def ncoauthor(papers, authors, mode='train', path='dataRev2/'):
     '''
@@ -297,20 +294,32 @@ def ncoauthor(papers, authors, mode='train', path='dataRev2/'):
 
     saveFeature(features, name='ncoauthor', mode=mode)
 
-if __name__ == '__main__':
+def nappear(papers, authors, mode='train', path='dataRev2/'):
 
-    labels(mode='train')
+    print 'generating nappear feature...'
+    
+    features = []
+    for authorid, paperids in csvGenerator(mode=mode, path=path):
+        myfeatures = []
+        for pid in paperids:
+            myfeatures.append(paperids.count(pid))
+        features.append(myfeatures)
+        
+    saveFeature(features, name='nappear', mode=mode) 
+
+if __name__ == '__main__':
 
     authors, papers = loadAuthorsPapers()
     #venues = loadVenues(authors, papers)
 
-
-    nauthors(papers, authors, mode='train')
-    npapers(papers, authors, mode='train')
-    year(papers, authors, mode='train')
-    nsamevenue(papers, authors, mode='train')
-    nattrib(papers, authors, mode='train')
-    globalpaperrank(papers, authors, mode='train')
-    paperrank(papers, authors, mode='train')
-    ncoauthor(papers, authors, mode='train')
-
+    for mode in ['train', 'test']:
+        labels(mode=mode)
+        nauthors(papers, authors, mode=mode)
+        npapers(papers, authors, mode=mode)
+        year(papers, authors, mode=mode)
+        nsamevenue(papers, authors, mode=mode)
+        nattrib(papers, authors, mode=mode)
+        globalpaperrank(papers, authors, mode=mode)
+        paperrank(papers, authors, mode=mode)
+        ncoauthor(papers, authors, mode=mode)
+        nappear(papers, authors, mode=mode)

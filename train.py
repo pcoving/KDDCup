@@ -2,14 +2,15 @@ import numpy as np
 import cPickle
 import csv
 import itertools
-#from sklearn.ensemble import RandomForestClassifier
-#from sklearn.ensemble import AdaBoostClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.cross_validation import ShuffleSplit
+from sklearn.cross_validation import ShuffleSplit, KFold
 #from rankboost import BipartiteRankBoost
 import random
+from sklearn.externals.joblib import Parallel, delayed
 
-def crossValidation(labels, features, classifier, train_authors, test_authors):
+def crossValidation(labels, features, classifier, train_authors, test_authors, pairwise=False):
+
+    assert pairwise == False
 
     X_train = [val for idx in train_authors for val in features[idx]]
     y_train = [val for idx in train_authors for val in labels[idx]]
@@ -39,8 +40,6 @@ def shuffleCrossValidation(labels, features, classifier,
 
     ss = ShuffleSplit(len(labels), n_iter=n_iter,
                       test_size=test_size, random_state=random_state)
-
-    #scores = Parallel(n_jobs=-1)(delayed(crossValidation)(labels, features, classifier, train_authors, test_authors) for train_authors, test_authors in ss)
 
     score = []
     for train_authors, test_authors in ss:
@@ -89,9 +88,9 @@ def shuffleCrossValidation(labels, features, classifier,
         score.append(myscore/len(test_authors)) # MAP
         if verbose > 0:
             print 'score:', myscore/len(test_authors)
-
+    
     score = np.array(score)
-    print 'score mean, std:', score.mean(), score.std()
+    print 'score mean, std, mean-std:', score.mean(), score.std(), score.mean() - score.std()
 
 def trainAndPredict(trainlabels, trainfeatures,
                     testlabels, testfeatures, classifier, pairwise=False):
@@ -178,31 +177,34 @@ def scoreAuthor(ranked_labels):
     return score
 
 if __name__ == '__main__':
-    #classifier = RandomForestClassifier(n_estimators=100,
-    #                                    n_jobs=-1,
-    #                                    min_samples_split=10,
-    #                                    random_state=1)
-
-    #classifier = AdaBoostClassifier(n_estimators=200)
     #classifier = BipartiteRankBoost(n_estimators=50, verbose=1)
 
-    feature_list = ['nauthors', 'npapers', 'year', 'nsamevenue', 'nattrib', 'paperrank', 'globalpaperrank', 'ncoauthor']
-
-    trainfeatures = loadFeatures(feature_list, mode='train')
-    trainlabels = cPickle.load(open('labels.train', 'rb'))
-
-    classifier = GradientBoostingClassifier(n_estimators=200,
-                                            #subsample=subsample,
-                                            #learning_rate=learning_rate,
-                                            #min_samples_split=2,
-                                            #min_samples_leaf=1,
-                                            #max_depth=max_depth,
+    classifier = GradientBoostingClassifier(n_estimators=800,
+                                            subsample=0.9,
+                                            learning_rate=0.05,
+                                            max_depth=3,
                                             random_state=1,
                                             verbose=0)
 
-    shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=2, pairwise=False)
+    feature_list = ['nauthors', 'npapers', 'year', 'nattrib', 'ncoauthor', 'paperrank', 'globalpaperrank', 'nappear']
+    
+    trainfeatures = loadFeatures(feature_list, mode='train')
+    trainlabels = cPickle.load(open('labels.train', 'rb')) 
+        
+    cv_authors = KFold(len(trainlabels), n_folds=5, indices=True, shuffle=True, random_state=1)
+    
+    score = Parallel(n_jobs=-1)(delayed(crossValidation)(trainlabels, trainfeatures, classifier, train_authors, test_authors, pairwise=False) for train_authors, test_authors in cv_authors)
 
-    #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier, pairwise=True)
+    score = np.array(score)
+    print 'score mean, std, mean-std:', score.mean(), score.std(), score.mean() - score.std()
+    
+    #testfeatures = loadFeatures(feature_list, mode='test')
+    #testlabels = cPickle.load(open('labels.test', 'rb')) 
+
+    #trainAndPredict(trainlabels, trainfeatures, testlabels, testfeatures, classifier, pairwise=False)
 
 
+
+
+    #shuffleCrossValidation(trainlabels, trainfeatures, classifier, n_iter=5, verbose=0, pairwise=False)
 
